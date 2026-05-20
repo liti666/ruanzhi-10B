@@ -83,29 +83,34 @@ def main(args):
 
     summaries = []
 
+    run = args.attack  # "textfooler" | "bertattack" | "hotflip" | "all"
+
     # --- TextFooler (Jin et al., AAAI 2020) ---
-    print("\n" + "="*50)
-    print("Running TextFooler (Jin et al., AAAI 2020)...")
-    print("="*50)
-    tf_csv = os.path.join(out_dir, "textfooler_results.csv")
-    run_single_attack(TextFoolerJin2019, model_wrapper, dataset, args.num_examples, tf_csv)
-    summaries.append(summarize_results(tf_csv, "TextFooler"))
+    if run in ("textfooler", "all"):
+        print("\n" + "="*50)
+        print("Running TextFooler (Jin et al., AAAI 2020)...")
+        print("="*50)
+        tf_csv = os.path.join(out_dir, "textfooler_results.csv")
+        run_single_attack(TextFoolerJin2019, model_wrapper, dataset, args.num_examples, tf_csv)
+        summaries.append(summarize_results(tf_csv, "TextFooler"))
 
     # --- BERT-Attack (Li et al., EMNLP 2020) ---
-    print("\n" + "="*50)
-    print("Running BERT-Attack (Li et al., EMNLP 2020)...")
-    print("="*50)
-    ba_csv = os.path.join(out_dir, "bertattack_results.csv")
-    run_single_attack(BERTAttackLi2020, model_wrapper, dataset, args.num_examples, ba_csv)
-    summaries.append(summarize_results(ba_csv, "BERT-Attack"))
+    if run in ("bertattack", "all"):
+        print("\n" + "="*50)
+        print("Running BERT-Attack (Li et al., EMNLP 2020)...")
+        print("="*50)
+        ba_csv = os.path.join(out_dir, "bertattack_results.csv")
+        run_single_attack(BERTAttackLi2020, model_wrapper, dataset, args.num_examples, ba_csv)
+        summaries.append(summarize_results(ba_csv, "BERT-Attack"))
 
     # --- HotFlip (Ebrahimi et al., ACL 2018) --- white-box attack ---
-    print("\n" + "="*50)
-    print("Running HotFlip (Ebrahimi et al., ACL 2018) [WHITE-BOX]...")
-    print("="*50)
-    hf_csv = os.path.join(out_dir, "hotflip_results.csv")
-    run_single_attack(HotFlipEbrahimi2018, model_wrapper, dataset, args.num_examples, hf_csv)
-    summaries.append(summarize_results(hf_csv, "HotFlip [white-box]"))
+    if run in ("hotflip", "all"):
+        print("\n" + "="*50)
+        print("Running HotFlip (Ebrahimi et al., ACL 2018) [WHITE-BOX]...")
+        print("="*50)
+        hf_csv = os.path.join(out_dir, "hotflip_results.csv")
+        run_single_attack(HotFlipEbrahimi2018, model_wrapper, dataset, args.num_examples, hf_csv)
+        summaries.append(summarize_results(hf_csv, "HotFlip [white-box]"))
 
     # --- Print comparison table ---
     print("\n" + "="*50)
@@ -129,5 +134,11 @@ if __name__ == "__main__":
     parser.add_argument("--dataset", default=DATASET)
     parser.add_argument("--num_examples", type=int, default=ATTACK_NUM_EXAMPLES)
     parser.add_argument("--results_dir", default=RESULTS_DIR)
+    parser.add_argument(
+        "--attack",
+        choices=["textfooler", "bertattack", "hotflip", "all"],
+        default="all",
+        help="Which attack to run. Default: all three.",
+    )
     args = parser.parse_args()
     main(args)
