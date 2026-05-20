@@ -2,7 +2,6 @@
 
 **课程项目 · 5人分工 · Python + PyTorch**
 
----
 
 ## 目录结构
 
@@ -25,15 +24,12 @@ ruanzhi-10B/
 └── main.py                              # 环境验证
 ```
 
----
 
 ## 一、环境搭建（每位成员都要在自己电脑上做，只做一次）
 
 ### 前提条件
 
 - Python 3.8 ~ 3.10（推荐 3.9）
-- 网络：**需要能访问 HuggingFace**（国内用户需开 VPN，或使用校园网代理）
-- 有 NVIDIA GPU（推荐），无 GPU 也能跑，速度更慢
 
 ### 步骤
 
@@ -51,7 +47,7 @@ python install.py
 ```
 
 > `install.py` 会自动检测有无 NVIDIA GPU：
-> - **有 GPU** → 安装 CUDA 版 PyTorch（保留你现有的 GPU 环境）
+> - **有 GPU** → 安装 CUDA 版 PyTorch
 > - **无 GPU** → 安装 CPU 版 PyTorch
 >
 > ⚠️ **不要**直接 `pip install -r requirements.txt`，否则会把 CUDA 版 PyTorch 替换成 CPU 版。
@@ -83,8 +79,7 @@ python main.py
 | 微调数据集 | IMDB 情感分类（正面/负面二分类） |
 | 干净准确率 | **93.7%** |
 
-**首次运行攻击脚本时，模型自动下载到本地缓存（~418 MB，需要 VPN）。**
-网络不好可以找组长要缓存文件夹，放到 `C:\Users\你的用户名\.cache\huggingface\hub\` 即可。
+**首次运行攻击脚本时，模型自动下载到本地缓存（~418 MB）。**
 
 ---
 
@@ -137,7 +132,7 @@ python attack/baseline_attack.py --attack hotflip
 
 ---
 
-### 成员4（组长）— 改进A：AWIR 改进攻击
+### 成员4 — 改进A：AWIR 改进攻击
 
 **文件**：`attack/improved_attack.py`
 
@@ -284,6 +279,6 @@ importance(w_i) = [conf(x) - conf(x_删除w_i)] × (1 + attention_weight(w_i))
 - transformers 4.38.0
 - textattack 0.3.x
 - datasets 2.18.0
-- CUDA 11.8（有 GPU 时）
+- CUDA 11.8
 
 详见 `requirements.txt`。
