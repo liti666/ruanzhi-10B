@@ -36,7 +36,7 @@ from tqdm import tqdm
 from transformers import BertForSequenceClassification, BertTokenizer
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-from configs.config import CHECKPOINT_DIR, DATASET, RESULTS_DIR
+from configs.config import DATASET, PRETRAINED_MODEL_DIR, RESULTS_DIR
 
 
 # ---------------------------------------------------------------------------
@@ -244,7 +244,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_dir", default=CHECKPOINT_DIR)
+    parser.add_argument("--model_dir", default=PRETRAINED_MODEL_DIR)
     parser.add_argument("--dataset", default=DATASET)
     parser.add_argument("--num_examples", type=int, default=100)
     parser.add_argument("--results_dir", default=RESULTS_DIR)

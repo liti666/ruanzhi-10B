@@ -32,7 +32,7 @@ from textattack.models.wrappers import HuggingFaceModelWrapper
 from transformers import BertForSequenceClassification, BertTokenizer
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-from configs.config import ATTACK_NUM_EXAMPLES, CHECKPOINT_DIR, DATASET, RESULTS_DIR
+from configs.config import ATTACK_NUM_EXAMPLES, DATASET, PRETRAINED_MODEL_DIR, RESULTS_DIR
 
 
 def run_single_attack(recipe_class, model_wrapper, dataset, num_examples, output_csv):
@@ -125,7 +125,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_dir", default=CHECKPOINT_DIR)
+    parser.add_argument("--model_dir", default=PRETRAINED_MODEL_DIR)
     parser.add_argument("--dataset", default=DATASET)
     parser.add_argument("--num_examples", type=int, default=ATTACK_NUM_EXAMPLES)
     parser.add_argument("--results_dir", default=RESULTS_DIR)

@@ -42,7 +42,7 @@ from transformers import (
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from configs.config import (
     CHECKPOINT_DIR, DATASET, LEARNING_RATE, MAX_LENGTH,
-    RESULTS_DIR, TRAIN_BATCH_SIZE,
+    PRETRAINED_MODEL_DIR, RESULTS_DIR, TRAIN_BATCH_SIZE,
 )
 
 ADV_CHECKPOINT_DIR = CHECKPOINT_DIR + "-adv"
@@ -184,7 +184,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_dir", default=CHECKPOINT_DIR)
+    parser.add_argument("--model_dir", default=PRETRAINED_MODEL_DIR)
     parser.add_argument("--adv_save_dir", default=ADV_CHECKPOINT_DIR)
     parser.add_argument("--dataset", default=DATASET)
     parser.add_argument("--num_adv_examples", type=int, default=300)
