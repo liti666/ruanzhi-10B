@@ -261,12 +261,6 @@ importance(w_i) = [conf(x) - conf(x_删除w_i)] × (1 + attention_weight(w_i))
 
 ## 七、常见问题
 
-**Q：运行时提示"无法连接 HuggingFace"？**
-> 需要开 VPN。首次运行攻击脚本时自动下载模型（~418 MB），之后缓存到本地不再下载。也可以找组长要缓存文件夹放到 `C:\Users\你的用户名\.cache\huggingface\hub\`。
-
-**Q：没有 GPU 能跑吗？**
-> 可以，但速度很慢。建议先用 `--num_examples 20` 小跑验证代码正确，再交给有 GPU 的人跑完整实验。
-
 **Q：需要先运行训练脚本吗？**
 > 不需要。所有攻击和防御脚本默认使用现成预训练模型，与 `train/finetune_bert.py` 完全独立。
 
