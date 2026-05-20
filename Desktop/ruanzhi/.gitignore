@@ -1,0 +1,46 @@
+# Model checkpoints (too large for git, each ~400MB)
+checkpoints/
+
+# Auto-downloaded datasets
+data/cache/
+~/.cache/huggingface/
+
+# Experiment results (generated locally, not source code)
+results/*.csv
+results/*.json
+results/*.png
+results/logs/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+bert_attack/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# IDE
+.vscode/launch.json
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Keep results directory structure
+!results/.gitkeep

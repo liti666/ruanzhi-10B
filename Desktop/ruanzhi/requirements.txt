@@ -1,0 +1,15 @@
+# Do NOT run `pip install -r requirements.txt` directly.
+# Run `python install.py` instead — it detects your GPU and installs
+# the correct PyTorch build (CUDA or CPU) automatically.
+
+transformers>=4.30.0
+datasets>=2.12.0
+textattack>=0.3.8
+scikit-learn>=1.2.0
+numpy>=1.23.0
+pandas>=1.5.0
+matplotlib>=3.6.0
+seaborn>=0.12.0
+tqdm>=4.64.0
+nltk>=3.8.0
+sentence-transformers>=2.2.0
