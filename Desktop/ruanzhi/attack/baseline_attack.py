@@ -1,32 +1,26 @@
 """
-成员2负责: Reproduce TextFooler, BERT-Attack, and HotFlip on the fine-tuned BERT model.
-
-Three attacks covering two threat models:
-  Black-box (realistic): TextFooler, BERT-Attack  -- attacker only sees model outputs
-  White-box (stronger):  HotFlip                  -- attacker has full gradient access
-
-Depends on: train/finetune_bert.py must finish first (needs ./checkpoints/bert-imdb/).
+基线攻击复现: TextFooler 和 BERT-Attack（均为黑盒攻击）
 
 Run:
-    python attack/baseline_attack.py
+    python attack/baseline_attack.py --attack textfooler
+    python attack/baseline_attack.py --attack bertattack
+    python attack/baseline_attack.py  # 两个都跑
 
 Outputs (in ./results/baseline/):
     textfooler_results.csv   -- Jin et al. AAAI 2020   (black-box)
     bertattack_results.csv   -- Li et al. EMNLP 2020   (black-box)
-    hotflip_results.csv      -- Ebrahimi et al. ACL 2018 (white-box)
     baseline_summary.txt     -- printed comparison table
 
 Paper targets to reproduce (IMDB, BERT victim):
     TextFooler: Attack Success Rate ~87%, Avg perturbed words ~6
     BERT-Attack: Attack Success Rate ~90%+
-    HotFlip:    higher ASR with far fewer queries (gradient-guided)
 """
 import argparse
 import os
 import sys
 
 from textattack import AttackArgs, Attacker
-from textattack.attack_recipes import BERTAttackLi2020, HotFlipEbrahimi2018, TextFoolerJin2019
+from textattack.attack_recipes import BERTAttackLi2020, TextFoolerJin2019
 from textattack.datasets import HuggingFaceDataset
 from textattack.models.wrappers import HuggingFaceModelWrapper
 from transformers import BertForSequenceClassification, BertTokenizer
@@ -79,11 +73,11 @@ def main(args):
     model_wrapper = HuggingFaceModelWrapper(model, tokenizer)
 
     print(f"Loading dataset: {args.dataset} (test split, {args.num_examples} examples)")
-    dataset = HuggingFaceDataset(args.dataset, split="test")
+    dataset = HuggingFaceDataset(args.dataset, "plain_text", split="test")
 
     summaries = []
 
-    run = args.attack  # "textfooler" | "bertattack" | "hotflip" | "all"
+    run = args.attack  # "textfooler" | "bertattack" | "all"
 
     # --- TextFooler (Jin et al., AAAI 2020) ---
     if run in ("textfooler", "all"):
@@ -102,15 +96,6 @@ def main(args):
         ba_csv = os.path.join(out_dir, "bertattack_results.csv")
         run_single_attack(BERTAttackLi2020, model_wrapper, dataset, args.num_examples, ba_csv)
         summaries.append(summarize_results(ba_csv, "BERT-Attack"))
-
-    # --- HotFlip (Ebrahimi et al., ACL 2018) --- white-box attack ---
-    if run in ("hotflip", "all"):
-        print("\n" + "="*50)
-        print("Running HotFlip (Ebrahimi et al., ACL 2018) [WHITE-BOX]...")
-        print("="*50)
-        hf_csv = os.path.join(out_dir, "hotflip_results.csv")
-        run_single_attack(HotFlipEbrahimi2018, model_wrapper, dataset, args.num_examples, hf_csv)
-        summaries.append(summarize_results(hf_csv, "HotFlip [white-box]"))
 
     # --- Print comparison table ---
     print("\n" + "="*50)
@@ -136,9 +121,9 @@ if __name__ == "__main__":
     parser.add_argument("--results_dir", default=RESULTS_DIR)
     parser.add_argument(
         "--attack",
-        choices=["textfooler", "bertattack", "hotflip", "all"],
+        choices=["textfooler", "bertattack", "all"],
         default="all",
-        help="Which attack to run. Default: all three.",
+        help="Which attack to run. Default: both.",
     )
     args = parser.parse_args()
     main(args)

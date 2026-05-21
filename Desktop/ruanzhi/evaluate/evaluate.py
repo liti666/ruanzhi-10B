@@ -101,7 +101,7 @@ def main():
     for name, fname in [
         ("TextFooler (Jin 2020)", "baseline/textfooler_results.csv"),
         ("BERT-Attack (Li 2020)", "baseline/bertattack_results.csv"),
-        ("HotFlip (Ebrahimi 2018)", "baseline/hotflip_results.csv"),
+        ("HotFlip (Ebrahimi 2017)", "baseline/hotflip_results.csv"),
     ]:
         r = parse_textattack_csv(os.path.join(RESULTS_DIR, fname), name)
         if r:
