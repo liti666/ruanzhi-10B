@@ -1,0 +1,1 @@
+{'method': 'TextFooler', 'total': 200, 'success': 182, 'asr': 91.0, 'avg_words_changed': 15.68, 'sem_sim': 0.9373}
