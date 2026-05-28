@@ -17,10 +17,17 @@ Paper targets to reproduce (IMDB, BERT victim):
 """
 import argparse
 import os
+import signal
 import sys
+
+import textattack
+import torch
+import tqdm
 
 from textattack import AttackArgs, Attacker
 from textattack.attack_recipes import BERTAttackLi2020, TextFoolerJin2019
+from textattack.attack_results import FailedAttackResult, MaximizedAttackResult, SkippedAttackResult, SuccessfulAttackResult
+from textattack.constraints.overlap import MaxWordsPerturbed
 from textattack.datasets import HuggingFaceDataset
 from textattack.models.wrappers import HuggingFaceModelWrapper
 from transformers import BertForSequenceClassification, BertTokenizer
@@ -28,16 +35,186 @@ from transformers import BertForSequenceClassification, BertTokenizer
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from configs.config import ATTACK_NUM_EXAMPLES, DATASET, PRETRAINED_MODEL_DIR, RESULTS_DIR
 
+def configure_bertattack_low_resource(attack):
+    """Reduce BERT-Attack candidate count while keeping the default perturbation cap."""
+    attack.transformation.max_candidates = 8
+    for idx, constraint in enumerate(attack.constraints):
+        if isinstance(constraint, MaxWordsPerturbed):
+            attack.constraints[idx] = MaxWordsPerturbed(max_percent=0.4)
+    return attack
 
-def run_single_attack(recipe_class, model_wrapper, dataset, num_examples, output_csv):
+
+class AttackTimeoutError(Exception):
+    pass
+
+
+def _handle_attack_timeout(signum, frame):
+    raise AttackTimeoutError
+
+
+class TimeoutAttacker(Attacker):
+    def __init__(self, *args, per_example_timeout=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.per_example_timeout = per_example_timeout
+
+    def _attack(self):
+        """Run attacks with a per-example wall-clock timeout."""
+        if torch.cuda.is_available():
+            self.attack.cuda_()
+
+        if self._checkpoint:
+            num_remaining_attacks = self._checkpoint.num_remaining_attacks
+            worklist = self._checkpoint.worklist
+            worklist_candidates = self._checkpoint.worklist_candidates
+        else:
+            if self.attack_args.num_successful_examples:
+                num_remaining_attacks = self.attack_args.num_successful_examples
+                worklist, worklist_candidates = self._get_worklist(
+                    self.attack_args.num_examples_offset,
+                    len(self.dataset),
+                    self.attack_args.num_successful_examples,
+                    self.attack_args.shuffle,
+                )
+            else:
+                num_remaining_attacks = self.attack_args.num_examples
+                worklist, worklist_candidates = self._get_worklist(
+                    self.attack_args.num_examples_offset,
+                    len(self.dataset),
+                    self.attack_args.num_examples,
+                    self.attack_args.shuffle,
+                )
+
+        if not self.attack_args.silent:
+            print(self.attack, "\n")
+
+        pbar = tqdm.tqdm(total=num_remaining_attacks, smoothing=0, dynamic_ncols=True)
+        num_results = self._checkpoint.results_count if self._checkpoint else 0
+        num_failures = self._checkpoint.num_failed_attacks if self._checkpoint else 0
+        num_skipped = self._checkpoint.num_skipped_attacks if self._checkpoint else 0
+        num_successes = self._checkpoint.num_successful_attacks if self._checkpoint else 0
+
+        sample_exhaustion_warned = False
+        old_handler = signal.getsignal(signal.SIGALRM)
+        while worklist:
+            idx = worklist.popleft()
+            try:
+                example, ground_truth_output = self.dataset[idx]
+            except IndexError:
+                continue
+            example = textattack.shared.AttackedText(example)
+            if self.dataset.label_names is not None:
+                example.attack_attrs["label_names"] = self.dataset.label_names
+
+            try:
+                if self.per_example_timeout:
+                    signal.signal(signal.SIGALRM, _handle_attack_timeout)
+                    signal.alarm(int(self.per_example_timeout))
+                result = self.attack.attack(example, ground_truth_output)
+            except AttackTimeoutError:
+                print(
+                    f"\n[WARNING] Attack timed out for dataset index {idx} "
+                    f"after {self.per_example_timeout}s; marking as failed and continuing.",
+                    flush=True,
+                )
+                original_result, _ = self.attack.goal_function.init_attack_example(
+                    example, ground_truth_output
+                )
+                result = FailedAttackResult(original_result)
+            except Exception as e:
+                raise e
+            finally:
+                if self.per_example_timeout:
+                    signal.alarm(0)
+                    signal.signal(signal.SIGALRM, old_handler)
+
+            if (
+                isinstance(result, SkippedAttackResult) and self.attack_args.attack_n
+            ) or (
+                not isinstance(result, SuccessfulAttackResult)
+                and self.attack_args.num_successful_examples
+            ):
+                if worklist_candidates:
+                    next_sample = worklist_candidates.popleft()
+                    worklist.append(next_sample)
+                else:
+                    if not sample_exhaustion_warned:
+                        print("[WARNING] Ran out of samples to attack!", flush=True)
+                        sample_exhaustion_warned = True
+            else:
+                pbar.update(1)
+
+            self.attack_log_manager.log_result(result)
+            if not self.attack_args.disable_stdout and not self.attack_args.silent:
+                print("\n")
+            num_results += 1
+
+            if isinstance(result, SkippedAttackResult):
+                num_skipped += 1
+            if isinstance(result, (SuccessfulAttackResult, MaximizedAttackResult)):
+                num_successes += 1
+            if isinstance(result, FailedAttackResult):
+                num_failures += 1
+            pbar.set_description(
+                f"[Succeeded / Failed / Skipped / Total] "
+                f"{num_successes} / {num_failures} / {num_skipped} / {num_results}"
+            )
+
+            if (
+                self.attack_args.checkpoint_interval
+                and len(self.attack_log_manager.results)
+                % self.attack_args.checkpoint_interval
+                == 0
+            ):
+                new_checkpoint = textattack.shared.AttackCheckpoint(
+                    self.attack_args,
+                    self.attack_log_manager,
+                    worklist,
+                    worklist_candidates,
+                )
+                new_checkpoint.save()
+                self.attack_log_manager.flush()
+
+        pbar.close()
+        print()
+        if not self.attack_args.silent and self.attack_args.disable_stdout:
+            self.attack_log_manager.enable_stdout()
+
+        if self.attack_args.enable_advance_metrics:
+            self.attack_log_manager.enable_advance_metrics = True
+
+        self.attack_log_manager.log_summary()
+        self.attack_log_manager.flush()
+        print()
+
+
+def run_single_attack(
+    recipe_class,
+    model_wrapper,
+    dataset,
+    num_examples,
+    output_csv,
+    per_example_timeout=None,
+    num_examples_offset=0,
+    checkpoint_interval=1,
+):
     attack = recipe_class.build(model_wrapper)
+    if recipe_class is BERTAttackLi2020:
+        attack = configure_bertattack_low_resource(attack)
+        print("  BERT-Attack params: max_candidates=8, max_percent=0.4")
     attack_args = AttackArgs(
         num_examples=num_examples,
+        num_examples_offset=num_examples_offset,
         log_to_csv=output_csv,
         csv_coloring_style="plain",
+        checkpoint_interval=checkpoint_interval,
+        checkpoint_dir=os.path.join(os.path.dirname(output_csv), "checkpoints"),
         disable_stdout=False,
     )
-    attacker = Attacker(attack, dataset, attack_args)
+    if per_example_timeout:
+        print(f"  Per-example timeout: {per_example_timeout}s")
+        attacker = TimeoutAttacker(attack, dataset, attack_args, per_example_timeout=per_example_timeout)
+    else:
+        attacker = Attacker(attack, dataset, attack_args)
     results = attacker.attack_dataset()
     return results
 
@@ -66,6 +243,9 @@ def compute_semantic_similarity(csv_path):
         return round(float(sims.mean()), 4)
     except ImportError:
         print("[WARNING] sentence-transformers not installed. Run: pip install sentence-transformers")
+        return float("nan")
+    except Exception as exc:
+        print(f"[WARNING] Semantic similarity skipped: {exc}")
         return float("nan")
 
 
@@ -121,7 +301,15 @@ def main(args):
         print("Running TextFooler (Jin et al., AAAI 2020)...")
         print("="*50)
         tf_csv = os.path.join(out_dir, "textfooler_results.csv")
-        run_single_attack(TextFoolerJin2019, model_wrapper, dataset, args.num_examples, tf_csv)
+        run_single_attack(
+            TextFoolerJin2019,
+            model_wrapper,
+            dataset,
+            args.num_examples,
+            tf_csv,
+            num_examples_offset=args.num_examples_offset,
+            checkpoint_interval=args.checkpoint_interval,
+        )
         summaries.append(summarize_results(tf_csv, "TextFooler"))
 
     # --- BERT-Attack (Li et al., EMNLP 2020) ---
@@ -130,7 +318,16 @@ def main(args):
         print("Running BERT-Attack (Li et al., EMNLP 2020)...")
         print("="*50)
         ba_csv = os.path.join(out_dir, "bertattack_results.csv")
-        run_single_attack(BERTAttackLi2020, model_wrapper, dataset, args.num_examples, ba_csv)
+        run_single_attack(
+            BERTAttackLi2020,
+            model_wrapper,
+            dataset,
+            args.num_examples,
+            ba_csv,
+            args.example_timeout,
+            args.num_examples_offset,
+            args.checkpoint_interval,
+        )
         summaries.append(summarize_results(ba_csv, "BERT-Attack"))
 
     # --- Print comparison table ---
@@ -154,7 +351,15 @@ if __name__ == "__main__":
     parser.add_argument("--model_dir", default=PRETRAINED_MODEL_DIR)
     parser.add_argument("--dataset", default=DATASET)
     parser.add_argument("--num_examples", type=int, default=ATTACK_NUM_EXAMPLES)
+    parser.add_argument("--num_examples_offset", type=int, default=0)
+    parser.add_argument("--checkpoint_interval", type=int, default=1)
     parser.add_argument("--results_dir", default=RESULTS_DIR)
+    parser.add_argument(
+        "--example_timeout",
+        type=int,
+        default=300,
+        help="Per-example timeout in seconds for BERT-Attack. Use 0 to disable.",
+    )
     parser.add_argument(
         "--attack",
         choices=["textfooler", "bertattack", "all"],
