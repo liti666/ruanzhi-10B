@@ -127,14 +127,16 @@ python attack/baseline_attack.py --attack bertattack
 
 **需要记录并与论文对比的指标**（对应论文 Table 2，BERT on IMDB）：
 
-| 指标 | 论文报告值 | 你的复现值（填入） |
-|------|-----------|-----------------|
-| ASR（攻击成功率） | ~90%+ | |
-| Avg Words Changed | — | |
-| Avg Queries | — | |
-| Semantic Similarity | — | |
+| 指标 | 论文报告值 | 你的复现值 |
+|------|-----------|------------|
+| ASR（攻击成功率） | ~90%+ | 91.94% |
+| Avg Words Changed | — | 未统计（TextAttack CSV 未输出该列） |
+| Avg Queries | — | 267.24 |
+| Semantic Similarity | — | 未计算（离线环境未缓存 all-MiniLM-L6-v2） |
 
-> Semantic Similarity 用 sentence-transformers（all-MiniLM-L6-v2）计算成功样本的余弦相似度均值。
+> 本次 BERT-Attack 复现实验共运行 IMDB test split 前 200 条样本：Successful 171、Failed 15、Skipped 14；ASR 按 Successful / (Successful + Failed) 计算。
+> 实验参数：`max_candidates=8`，`max_percent=0.4`，每批 20 条样本分批运行，单样本超时 300 秒；结果汇总文件为 `results/bertattack_batches_merged.csv`。
+> Semantic Similarity 原计划用 sentence-transformers（all-MiniLM-L6-v2）计算成功样本的余弦相似度均值，但当前离线环境未缓存该模型，因此未纳入本次 README 结果。
 
 **对应论文**：*BERT-ATTACK: Adversarial Attack Against BERT Using BERT* Li et al., EMNLP 2020
 
