@@ -1,0 +1,1 @@
+{'method': 'TextFooler', 'total': 50, 'success': np.int64(43), 'asr': np.float64(86.0), 'avg_words_changed': nan, 'sem_sim': 0.9302}
