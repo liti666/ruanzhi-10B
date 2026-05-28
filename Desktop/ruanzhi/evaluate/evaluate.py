@@ -111,7 +111,7 @@ def _awir_defense_row(json_path, model_label):
         "ASR (%)": round(r["asr"], 1),
         "Avg Words Changed": round(r.get("avg_perturb_rate", float("nan")), 3),
         "Avg Queries": round(r["avg_queries"], 1),
-        "Sem. Similarity": float("nan"),
+        "Sem. Similarity": r.get("sem_sim", float("nan")),
     }
 
 
@@ -139,7 +139,7 @@ def parse_improved_json(json_path):
             "ASR (%)": round(r["asr"], 1),
             "Avg Words Changed": round(r.get("avg_perturb_rate", float("nan")), 3),
             "Avg Queries": round(r["avg_queries"], 1),
-            "Sem. Similarity": float("nan"),  # AWIR uses WordNet, not TextAttack CSV
+            "Sem. Similarity": r.get("sem_sim", float("nan")),
         })
     return rows
 
